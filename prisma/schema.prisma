@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model SystemSettings {
+  id                      String   @id @default("default")
+  maxConsecutivePeriodsDay Int      @default(6)
+  maxTotalPeriodsDay       Int      @default(9)
+  maxReliefPeriodsWeek     Int      @default(5)
+  updatedAt               DateTime @updatedAt
+}
+
+model Teacher {
+  id                   String             @id @default(cuid())
+  name                 String             @unique
+  department           String             @default("General")
+  partTime             Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  timetableEntries     TimetableEntry[]
+  specialProgrammes    SpecialProgramme[]
+  absences             ReliefNeed[]       @relation("AbsentTeacher")
+  assignedReliefs      ReliefNeed[]       @relation("AssignedReliefTeacher")
+}
+
+model TimetableEntry {
+  id           String   @id @default(cuid())
+  teacherId    String
+  teacher      Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  dayOfWeek    String   // "Monday", "Tuesday", etc.
+  periodNumber Int      // 1-12
+  activityName String   @default("Class")
+  classLevel   String   // e.g., "P1", "P6"
+  room         String   // e.g., "1 Faith", "SBB 6"
+  venueRemarks String   // e.g., "Go to 1 Faith."
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([teacherId, dayOfWeek, periodNumber])
+}
+
+model SpecialProgramme {
+  id           String   @id @default(cuid())
+  teacherId    String
+  teacher      Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  date         String   // YYYY-MM-DD
+  periodNumber Int?     // 1-12 (optional)
+  startTime    String?  // e.g., "09:00"
+  endTime      String?  // e.g., "11:00"
+  eventName    String   // e.g., "Staff Workshop"
+  classLevel   String?  // e.g., "P5"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([teacherId, date])
+}
+
+model ReliefNeed {
+  id                      String   @id @default(cuid())
+  absentTeacherId         String
+  absentTeacher           Teacher  @relation("AbsentTeacher", fields: [absentTeacherId], references: [id], onDelete: Cascade)
+  date                    String   // YYYY-MM-DD
+  periodNumber            Int      // 1-12
+  classLevel              String   // e.g., "P1"
+  room                    String   // e.g., "1 Faith"
+  assignedReliefTeacherId String?
+  assignedReliefTeacher   Teacher? @relation("AssignedReliefTeacher", fields: [assignedReliefTeacherId], references: [id], onDelete: SetNull)
+  status                  String   @default("Pending") // "Pending" | "Assigned"
+  finalRemarks            String   // Combined venue & recess remarks
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([date, periodNumber])
+}
